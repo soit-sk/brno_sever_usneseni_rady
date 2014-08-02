@@ -39,7 +39,7 @@ my $root = get_root($base_uri);
 # Look for items.
 my $act_year = (localtime)[5] + 1900;
 foreach my $year (2010 .. $act_year) {
-	print "$year\n";
+	print "Year: $year\n";
 	my $year_div = get_h3_content($year);
 	my @tr = $year_div->find_by_tag_name('tr');
 	foreach my $tr (@tr) {
