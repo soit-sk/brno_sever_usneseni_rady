@@ -7,8 +7,10 @@ use warnings;
 
 # Modules.
 use Database::DumpTruck;
+use Digest::MD5;
 use Encode qw(decode_utf8 encode_utf8);
 use English;
+use File::Temp qw(tempfile);
 use HTML::TreeBuilder;
 use LWP::UserAgent;
 use POSIX qw(strftime);
@@ -71,15 +73,18 @@ foreach my $year (2010 .. $act_year) {
 				|| $ret_ar->[0]->{'count(*)'} == 0) {
 
 				print '- '.encode_utf8($title)."\n";
+				my $md5 = md5($link);
 				$dt->insert({
 					'Date' => $date,
 					'Title' => $title,
 					'PDF_link' => $link,
 					'RMC_number' => $rmc_number,
+					'MD5' => $md5,
 				});
 				# TODO Move to begin with create_table().
 				$dt->create_index(['Date', 'Title'], 'data',
 					1, 1);
+				$dt->create_index(['MD5'], 'data', 1, 1);
 			}
 		}
 	}
@@ -142,6 +147,23 @@ sub get_root {
 	my $tree = HTML::TreeBuilder->new;
 	$tree->parse(decode_utf8($data));
 	return $tree->elementify;
+}
+
+# Get link and compute MD5 sum.
+sub md5 {
+	my $link = shift;
+	my (undef, $temp_file) = tempfile();
+	my $get = $ua->get($link, ':content_file' => $temp_file);
+	my $md5_sum;
+	if ($get->is_success) {
+		my $md5 = Digest::MD5->new;
+		open my $temp_fh, '<', $temp_file;
+		$md5->addfile($temp_fh);
+		$md5_sum = $md5->hexdigest;
+		close $temp_fh;
+		unlink $temp_file;
+	}
+	return $md5_sum;
 }
 
 # Removing trailing whitespace.
