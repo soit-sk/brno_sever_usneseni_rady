@@ -60,16 +60,27 @@ foreach my $year (2010 .. $act_year) {
 			}
 
 			# Save.
-			# TODO Update.
-			print '- '.encode_utf8($title)."\n";
-			$dt->insert({
-				'Date' => $date,
-				'Title' => $title,
-				'PDF_link' => $link,
-				'RMC_number' => $rmc_number,
-			});
-			# TODO Move to begin with create_table().
-			$dt->create_index(['Date', 'Title'], 'data', 1, 1);
+			my $ret_ar = eval {
+				$dt->execute('SELECT COUNT(*) FROM data '.
+					'WHERE Date = ? AND Title = ?',
+					$date, $title);
+			};
+			if ($EVAL_ERROR || ! @{$ret_ar}
+				|| ! exists $ret_ar->[0]->{'count(*)'}
+				|| ! defined $ret_ar->[0]->{'count(*)'}
+				|| $ret_ar->[0]->{'count(*)'} == 0) {
+
+				print '- '.encode_utf8($title)."\n";
+				$dt->insert({
+					'Date' => $date,
+					'Title' => $title,
+					'PDF_link' => $link,
+					'RMC_number' => $rmc_number,
+				});
+				# TODO Move to begin with create_table().
+				$dt->create_index(['Date', 'Title'], 'data',
+					1, 1);
+			}
 		}
 	}
 }
