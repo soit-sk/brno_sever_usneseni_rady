@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# Copyright 2014 Michal Špaček <tupinek@gmail.com>
+# Copyright 2014-2015 Michal Špaček <tupinek@gmail.com>
 
 # Pragmas.
 use strict;
