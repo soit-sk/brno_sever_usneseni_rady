@@ -39,55 +39,51 @@ print 'Page: '.$base_uri->as_string."\n";
 my $root = get_root($base_uri);
 
 # Look for items.
-my $act_year = (localtime)[5] + 1900;
-foreach my $year (2015 .. $act_year) {
-	print "Year: $year\n";
-	my $year_div = get_h3_content($year);
-	my @tr = $year_div->find_by_tag_name('tr');
-	foreach my $tr (@tr) {
-		my ($date_td, $doc_td) = $tr->find_by_tag_name('td');
-		my $date = get_db_date($date_td->as_text);
-		my $doc_a = $doc_td->find_by_tag_name('a');
+my $table = $root->find_by_tag_name('table');
+my @tr = $table->find_by_tag_name('tr');
+foreach my $tr (@tr) {
+    my ($date_td, $doc_td) = $tr->find_by_tag_name('td');
+    my $date = get_db_date($date_td->as_text);
+    my $doc_a = $doc_td->find_by_tag_name('a');
 
-		# Save.
-		if ($doc_a) {
-			my $title = $doc_td->as_text;
-			remove_trailing(\$title);
-			my $link = $base_uri->scheme.'://'.$base_uri->host.
-				$doc_a->attr('href');
-			my $rmc_number;
-			my $rmc = decode_utf8('RMČ');
-			if ($title =~ m/^\s*(\d+)\.\s*$rmc$/ms) {
-				$rmc_number = $1;
-			}
+    # Save.
+    if ($doc_a) {
+        my $title = $doc_td->as_text;
+        remove_trailing(\$title);
+        my $link = $base_uri->scheme.'://'.$base_uri->host.
+            $doc_a->attr('href');
+        my $rmc_number;
+        my $rmc = decode_utf8('RMČ');
+        if ($title =~ m/^\s*(\d+)\.\s*$rmc$/ms) {
+            $rmc_number = $1;
+        }
 
-			# Save.
-			my $ret_ar = eval {
-				$dt->execute('SELECT COUNT(*) FROM data '.
-					'WHERE Date = ? AND Title = ?',
-					$date, $title);
-			};
-			if ($EVAL_ERROR || ! @{$ret_ar}
-				|| ! exists $ret_ar->[0]->{'count(*)'}
-				|| ! defined $ret_ar->[0]->{'count(*)'}
-				|| $ret_ar->[0]->{'count(*)'} == 0) {
+        # Save.
+        my $ret_ar = eval {
+            $dt->execute('SELECT COUNT(*) FROM data '.
+                'WHERE Date = ? AND Title = ?',
+                $date, $title);
+        };
+        if ($EVAL_ERROR || ! @{$ret_ar}
+            || ! exists $ret_ar->[0]->{'count(*)'}
+            || ! defined $ret_ar->[0]->{'count(*)'}
+            || $ret_ar->[0]->{'count(*)'} == 0) {
 
-				print '- '.encode_utf8($title)."\n";
-				my $md5 = md5($link);
-				$dt->insert({
-					'Date' => $date,
-					'Title' => $title,
-					'PDF_link' => $link,
-					'RMC_number' => $rmc_number,
-					'MD5' => $md5,
-				});
-				# TODO Move to begin with create_table().
-				$dt->create_index(['Date', 'Title'], 'data',
-					1, 1);
-				$dt->create_index(['MD5'], 'data', 1, 1);
-			}
-		}
-	}
+            print '- '.encode_utf8($title)."\n";
+            my $md5 = md5($link);
+            $dt->insert({
+                'Date' => $date,
+                'Title' => $title,
+                'PDF_link' => $link,
+                'RMC_number' => $rmc_number,
+                'MD5' => $md5,
+            });
+            # TODO Move to begin with create_table().
+            $dt->create_index(['Date', 'Title'], 'data',
+                1, 1);
+            $dt->create_index(['MD5'], 'data', 1, 1);
+        }
+    }
 }
 
 # Get database date from web date.
@@ -97,41 +93,6 @@ sub get_db_date {
 		=~ m/^\s*(\d+)\s*\.\s*(\d+)\s*.\s*(\d+)\s*$/ms;
 	my $time = timelocal(0, 0, 0, $day, $mon - 1, $year - 1900);
 	return strftime('%Y-%m-%d', localtime($time));
-}
-
-# Get content after h3 defined by title.
-sub get_h3_content {
-	my $title = shift;
-	my @a = $root->find_by_tag_name('a');
-	my $ret_a;
-	foreach my $a (@a) {
-		if ($a->as_text eq $title) {
-			$ret_a = $a;
-			last;
-		}
-	}
-	my @content = $ret_a->parent->parent->content_list;
-	my $num = 0;
-	foreach my $content (@content) {
-		if ($num == 1) {
-			return $content;
-		}
-		if (check_h3($content, $title)) {
-			$num = 1;
-		}
-	}
-	return;
-}
-
-# Check if is h3 with defined title.
-sub check_h3 {
-	my ($block, $title) = @_;
-	foreach my $a ($block->find_by_tag_name('a')) {
-		if ($a->as_text eq $title) {
-			return 1;
-		}
-	}
-	return 0;
 }
 
 # Get root of HTML::TreeBuilder object.
