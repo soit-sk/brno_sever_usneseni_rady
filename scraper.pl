@@ -39,49 +39,51 @@ print 'Page: '.$base_uri->as_string."\n";
 my $root = get_root($base_uri);
 
 # Look for items.
-my $table = $root->find_by_tag_name('table');
-my @tr = $table->find_by_tag_name('tr');
-foreach my $tr (@tr) {
-    my ($date_td, $doc_td) = $tr->find_by_tag_name('td');
-    my $date = get_db_date($date_td->as_text);
-    my $doc_a = $doc_td->find_by_tag_name('a');
-
-    # Save.
-    if ($doc_a) {
-        my $title = $doc_td->as_text;
-        remove_trailing(\$title);
-        my $link = $base_uri->scheme.'://'.$base_uri->host.
-            $doc_a->attr('href');
-        my $rmc_number;
-        my $rmc = decode_utf8('RMČ');
-        if ($title =~ m/^\s*(\d+)\.\s*$rmc$/ms) {
-            $rmc_number = $1;
-        }
+my @tables = $root->find_by_tag_name('table');
+foreach my $table (@tables) {
+    my @tr = $table->find_by_tag_name('tr');
+    foreach my $tr (@tr) {
+        my ($date_td, $doc_td) = $tr->find_by_tag_name('td');
+        my $date = get_db_date($date_td->as_text);
+        my $doc_a = $doc_td->find_by_tag_name('a');
 
         # Save.
-        my $ret_ar = eval {
-            $dt->execute('SELECT COUNT(*) FROM data '.
-                'WHERE Date = ? AND Title = ?',
-                $date, $title);
-        };
-        if ($EVAL_ERROR || ! @{$ret_ar}
-            || ! exists $ret_ar->[0]->{'count(*)'}
-            || ! defined $ret_ar->[0]->{'count(*)'}
-            || $ret_ar->[0]->{'count(*)'} == 0) {
+        if ($doc_a) {
+            my $title = $doc_td->as_text;
+            remove_trailing(\$title);
+            my $link = $base_uri->scheme.'://'.$base_uri->host.
+                $doc_a->attr('href');
+            my $rmc_number;
+            my $rmc = decode_utf8('RMČ');
+            if ($title =~ m/^\s*(\d+)\.\s*$rmc$/ms) {
+                $rmc_number = $1;
+            }
 
-            print '- '.encode_utf8($title)."\n";
-            my $md5 = md5($link);
-            $dt->insert({
-                'Date' => $date,
-                'Title' => $title,
-                'PDF_link' => $link,
-                'RMC_number' => $rmc_number,
-                'MD5' => $md5,
-            });
-            # TODO Move to begin with create_table().
-            $dt->create_index(['Date', 'Title'], 'data',
-                1, 1);
-            $dt->create_index(['MD5'], 'data', 1, 1);
+            # Save.
+            my $ret_ar = eval {
+                $dt->execute('SELECT COUNT(*) FROM data '.
+                    'WHERE Date = ? AND Title = ?',
+                    $date, $title);
+            };
+            if ($EVAL_ERROR || ! @{$ret_ar}
+                || ! exists $ret_ar->[0]->{'count(*)'}
+                || ! defined $ret_ar->[0]->{'count(*)'}
+                || $ret_ar->[0]->{'count(*)'} == 0) {
+
+                print '- '.encode_utf8($title)."\n";
+                my $md5 = md5($link);
+                $dt->insert({
+                    'Date' => $date,
+                    'Title' => $title,
+                    'PDF_link' => $link,
+                    'RMC_number' => $rmc_number,
+                    'MD5' => $md5,
+                });
+                # TODO Move to begin with create_table().
+                $dt->create_index(['Date', 'Title'], 'data',
+                    1, 1);
+                $dt->create_index(['MD5'], 'data', 1, 1);
+            }
         }
     }
 }
